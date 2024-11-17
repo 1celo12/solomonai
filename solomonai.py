@@ -90,8 +90,9 @@ def find_most_similar(needle, haystack):
     return sorted(zip(similarity_scores, range(len(haystack))), reverse=True)
 
 
-def main():
-
+def solomon_ai(prompt):
+    last_message = prompt[-1]
+    print(prompt)
     SYSTEM_PROMPT = """You are a helpful reading assistant who answers questions 
         Context:
     """
@@ -106,35 +107,32 @@ def main():
     chunks = chunk_text(paragraphs, max_words=max_chunk_words)
     print(f"Total chunks created: {len(chunks)}")
 
-
+#context embedding
     # Generate or load embeddings
     embeddings = get_embeddings(embeddings_filename, "nomic-embed-text:latest",chunks)
 
-    while True:
-        prompt = input("What do you want to know? -> ")
-        if not prompt.strip():
-            print("Exiting...")
-            break
-
         # Generate embedding for the prompt
-        prompt_embedding = ollama.embeddings(model="nomic-embed-text:latest", prompt=prompt)["embedding"]
-
-        # Find the most similar chunks
-        most_similar_chunks = find_most_similar(prompt_embedding, embeddings)[:80]
+    if last_message["role"] == "user":
+        prompt_embedding = ollama.embeddings(
+            model="nomic-embed-text:latest", 
+            prompt=last_message["content"]
+        )["embedding"]
+            # Find the most similar chunks
+    most_similar_chunks = find_most_similar(prompt_embedding, embeddings)[:80]
 
         # Generate response using the most similar paragraphs
-        context = "\n".join(chunks[item[1]] for item in most_similar_chunks)
-        response = ollama.chat(
+    context = "\n".join(chunks[item[1]] for item in most_similar_chunks)
+    
+    
+    response = ollama.chat(
             model="llama3.2:latest",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT + context},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content" : last_message["content"]},
             ],
         )
+    return response["message"]["content"]
+        # print("\n\n")
+        # print(response["message"]["content"])
 
-        print("\n\n")
-        print(response["message"]["content"])
 
-
-if __name__ == "__main__":
-    main()
